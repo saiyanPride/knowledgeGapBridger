@@ -2,41 +2,89 @@ from privateEnvVariables import API_KEY, CUSTOM_SEARCH_ENGINE_ID
 from googleapiclient.discovery import build
 import json
 VERB = 'v'
+NUM_RESULTS_PER_QUERY = 10
+LANGUAGE = 'lang_en'
+GOOGLE_SEARCH_API_SERVICE_NAME = "customsearch"
+GOOGLE_SEARCH_API_VERSION = "v1"
+GOOGLE = "GOOGLE"
 
-def smartQuery(query_list, context_string='', parts_of_speech_disambiguation=None):
+def info(msg): print("[INFO] " + msg)
+
+def queryGoogle(query, exact_terms, or_terms, exclude_terms):
+    info("running a google query")
+    query_service = build(GOOGLE_SEARCH_API_SERVICE_NAME, GOOGLE_SEARCH_API_VERSION, developerKey=API_KEY) #this engine lacks intelligence features
+
+    query_response = query_service.cse().list(q=query, cx=CUSTOM_SEARCH_ENGINE_ID, exactTerms=exact_terms, 
+                                                orTerms=or_terms, excludeTerms=exclude_terms,lr=LANGUAGE).execute() 
     
-    # generate queries
-    # for each query compile result
-        # in the form: containing sentence, links
-    queries = []
+    # extract results
+    result_urls = []
+    result_snippets = []
 
-    for query in queries:
-        #below should be a function call
-        query_service = build("customsearch", "v1", developerKey=API_KEY) #this engine lacks intelligence features
-        query_response = query_service.cse().list(q=query,
-                                                cx=CUSTOM_SEARCH_ENGINE_ID,
-                                                ).execute() 
-        result_items = query_response['items']
-        result_urls = []
+    for result_item in query_response['items']:
+        result_urls.append(result_item['link'])
+        result_snippets.append(result_item['snippet'])
 
-        for result_item in result_items:
-            result_urls.append(result_item['link'])
-            print(result_item['link'])
+    return (result_snippets, result_urls)
+
+def querySearchEngine(search_engine, exact_query_term, context_string, excludeTerms):
+    #see https://developers.google.com/custom-search/v1/reference/rest/v1/cse/list for parameter definitions
+    # will add more search engines in the future
+    if(search_engine == GOOGLE): 
+        return queryGoogle("", exact_query_term, context_string, excludeTerms)
+    else: # default
+        return queryGoogle("", exact_query_term, context_string, excludeTerms)
+
+def getVerbInflections(verb):
+    inflections = [verb]
+    #TODO: determine inflections
+    return inflections
+
+def get_enriched_context_string(context_list):
+    #TODO: use NLP to enrich `context_list`, this helps automating the crafting of queries to fit context
+    # ['electric','electricity'] should be enriched to giver the final result 'electric electricity electronic current'
+    return ' '.join(context_list)
+
+def traitSearch(trait, context_list, excludeTerms = None):
+    """
+    `trait`: describes a property of the sought object using verb & noun e.g. ["emits, light"] or ['stores','charge']
+    `context_list`: describes the context for this search to avoid ambiguity e.g. ['electric','electricity'], since electric could be taken to mean thrilling excitement
+    `excludeTerms`: space separated terms to exlude e.g. ['laser', 'theatre', 'festival']
+    """
+
+    #TODO: validate `trait` assert( len(trait) == 2) & that first term is verb and second term is noun
+    verb = trait[0]
+    noun = trait[1]
+
+    verb_inflections = getVerbInflections(verb)
+    # for each inflection generate exact query term
+    exact_query_terms = []
+    for verb_inflection in verb_inflections:
+        exact_query_terms.append(verb_inflection + " " + noun)
+    
+    # enrich context of the search with other strongly correlated & relevant terms
+    context_string = get_enriched_context_string(context_list) 
+    
+    snippets = []
+    links = []
+    for exact_query_term in exact_query_terms:
+        snippets_, links_ = querySearchEngine(GOOGLE, exact_query_term, context_string, excludeTerms)
+        snippets += snippets_
+        links += links_
+    
+    for snippet, link in zip(snippets, links):
+        print(snippet + " -> " + link + "\n")
+
+    #TODO: use NLP to remove duplicates
+
+    #TODO: use NLP to filter the results by relevance using query_pos_list
+
+    # return the relevant search_results after post-processing
 
 def test():
-    #api reference guide: https://developers.google.com/custom-search/v1/reference/rest/v1/cse/list
-    print("\ntesting\n")
-    query_service = build("customsearch", "v1", developerKey=API_KEY) #this engine lacks intelligence features
-    query = 'store electric charge'#'light'
-    exact_terms = ''#"emits red light"
-    exclude_terms = 'laser'
-    or_terms =  ""#"electricity energy electron electric electronic"
-    num_results = 10 # must be in [1,10]
-    language = 'lang_en'
-    query_response = query_service.cse().list(q=query,cx=CUSTOM_SEARCH_ENGINE_ID, 
-                                                num = num_results, lr=language, exactTerms=exact_terms, orTerms=or_terms, excludeTerms=exclude_terms).execute() 
-    
-    #print( json.dumps(response, sort_keys=True, indent=4) )
+
+    # sample trait search
+    traitSearch(['withstands', 'strain'], ['material','property'], 'rubber cutting')
     """
     sample response
     {
@@ -92,25 +140,13 @@ def test():
             "title": "Electric vehicles charge at Goodwill stores | Minnesota Pollution ..."
         },
     """
-    
-    result_items = query_response['items']
-    
-    result_urls = []
-    result_snippets = []
-
-    for result_item in result_items:
-        link = result_item['link']
-        snippet = result_item['snippet']
-        result_urls.append(link)
-        result_snippets.append(snippet)
-        print(snippet + " -> " + link + "\n")
 
 
 def usage():
     query_list = ['stores', 'electric', 'charge']
     context_string = '' #helps to filter
-    parts_of_speech_disambiguation = ['' for term in query_list]
-    parts_of_speech_disambiguation[0] = [VERB]   # 'v' for verb
+    query_pos_list = ['' for term in query_list]
+    query_pos_list[0] = [VERB]   # 'v' for verb
                                                 # engine will try to infer, but user can specify
                                                 # let's the engine know that the verb homograph (same spelling, diff meaning, only synonyms have same meaning) should be used
 
@@ -121,7 +157,7 @@ def usage():
     exclude_terms = []
     or_search_terms = [] # this is used to filter results from other search paramters, at least one of these must be in results
     
-    smartQuery(query_list, context_string, parts_of_speech_disambiguation)
+    smartQuery(query_list, context_string, query_pos_list)
 
 if __name__ == '__main__':
     test()
