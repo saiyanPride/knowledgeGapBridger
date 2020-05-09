@@ -1,12 +1,19 @@
 from privateEnvVariables import API_KEY, CUSTOM_SEARCH_ENGINE_ID
 from googleapiclient.discovery import build
 import json
+import spacy
+import pyinflect
+
 VERB = 'v'
 NUM_RESULTS_PER_QUERY = 10
 LANGUAGE = 'lang_en'
 GOOGLE_SEARCH_API_SERVICE_NAME = "customsearch"
 GOOGLE_SEARCH_API_VERSION = "v1"
 GOOGLE = "GOOGLE"
+
+# NLP
+nlp = spacy.load('en_core_web_sm')
+PENN_TREEBANK_POS_TAGS_VERBS = ('VB', 'VBD', 'VBG', 'VBN','VBP','VBZ')
 
 def info(msg): print("[INFO] " + msg)
 
@@ -20,10 +27,13 @@ def queryGoogle(query, exact_terms, or_terms, exclude_terms):
     # extract results
     result_urls = []
     result_snippets = []
-
-    for result_item in query_response['items']:
-        result_urls.append(result_item['link'])
-        result_snippets.append(result_item['snippet'])
+    
+    try:
+        for result_item in query_response['items']:
+            result_urls.append(result_item['link'])
+            result_snippets.append(result_item['snippet'])
+    except: #TODO: improve this error handle, not down the issue
+        pass
 
     return (result_snippets, result_urls)
 
@@ -36,18 +46,23 @@ def querySearchEngine(search_engine, exact_query_term, context_string, excludeTe
         return queryGoogle("", exact_query_term, context_string, excludeTerms)
 
 def getVerbInflections(verb):
-    inflections = [verb]
-    #TODO: determine inflections
-    return inflections
+    #TODO: lemmatise `verb` if not lemmatised by the user, if user provides lemma, then less likely to run into incorrect lemmatistion issues e.g. 'hating' -> 'hat', instead of hate
+    inflections = []
+    tokenised_word = nlp(verb)[0]
+
+    for pos_tag in PENN_TREEBANK_POS_TAGS_VERBS:
+        inflections.append ( tokenised_word._.inflect(pos_tag) )
+
+    return inflections if len(inflections) > 0 else [verb]
 
 def get_enriched_context_string(context_list):
     #TODO: use NLP to enrich `context_list`, this helps automating the crafting of queries to fit context
-    # ['electric','electricity'] should be enriched to giver the final result 'electric electricity electronic current'
+    # ['electric','electricity'] should be enriched to give the final result 'electric electricity electronic current'
     return ' '.join(context_list)
 
 def traitSearch(trait, context_list, excludeTerms = None):
     """
-    `trait`: describes a property of the sought object using verb & noun e.g. ["emits, light"] or ['stores','charge']
+    `trait`: describes a property of the sought object using verb (lemmatised ideally) & noun e.g. ["emit, light"] or ['store','charge']
     `context_list`: describes the context for this search to avoid ambiguity e.g. ['electric','electricity'], since electric could be taken to mean thrilling excitement
     `excludeTerms`: space separated terms to exlude e.g. ['laser', 'theatre', 'festival']
     """
@@ -62,11 +77,14 @@ def traitSearch(trait, context_list, excludeTerms = None):
     for verb_inflection in verb_inflections:
         exact_query_terms.append(verb_inflection + " " + noun)
     
+    #TODO: include synonyms in the `exact_query_terms`, but only those correlated with the context, in the UI give the user the freedom to reject some terms e.g. synonyms of emit include [produce, give off, secret] in the context of visible light, user may to reject secret
+
     # enrich context of the search with other strongly correlated & relevant terms
     context_string = get_enriched_context_string(context_list) 
     
     snippets = []
     links = []
+    #TODO: cap the number of searches, to avoid the possibility of an infinite search
     for exact_query_term in exact_query_terms:
         snippets_, links_ = querySearchEngine(GOOGLE, exact_query_term, context_string, excludeTerms)
         snippets += snippets_
@@ -75,72 +93,34 @@ def traitSearch(trait, context_list, excludeTerms = None):
     for snippet, link in zip(snippets, links):
         print(snippet + " -> " + link + "\n")
 
+    #TODO: use NLP to filter the results by relevance? doesn't search engine already handle relevance for you
+
+    #TODO: if possible use NLP to determine the object (noun or phrasal noun) or worst case the sentence which has the sought trait
+    
     #TODO: use NLP to remove duplicates
-
-    #TODO: use NLP to filter the results by relevance using query_pos_list
-
+    
     # return the relevant search_results after post-processing
 
 def test():
 
     # sample trait search
-    traitSearch(['withstands', 'strain'], ['material','property'], 'rubber cutting')
-    """
-    sample response
-    {
-            "cacheId": "lna6nn9hkIgJ",
-            "displayLink": "www.pca.state.mn.us",
-            "formattedUrl": "https://www.pca.state.mn.us/featured/electric-vehicles-charge-goodwill-stores",
-            "htmlFormattedUrl": "https://www.pca.state.mn.us/featured/<b>electric</b>-vehicles-<b>charge</b>-goodwill-<b>stores</b>",
-            "htmlSnippet": "Aug 3, 2015 <b>...</b> Goodwill supports greener transportation by adding <b>electric</b> vehicle <b>charging</b> <br>\nstations at some of their <b>stores</b>.",
-            "htmlTitle": "<b>Electric</b> vehicles <b>charge</b> at Goodwill <b>stores</b> | Minnesota Pollution ...",
-            "kind": "customsearch#result",
-            "link": "https://www.pca.state.mn.us/featured/electric-vehicles-charge-goodwill-stores",
-            "pagemap": {
-                "Item": [
-                    {
-                        "encoded": "Last year, sales from Goodwill stores funded employment training, job placement services, financial education, youth mentoring and more to 9.8 million people in the United States and Canada....",
-                        "title": "Electric vehicles charge at Goodwill stores"
-                    }
-                ],
-                "cse_image": [
-                    {
-                        "src": "https://www.pca.state.mn.us/sites/default/files/styles/open_graph_image/public/310867105bd77816115eb8beca878465_XL.jpg?itok=Kz-1k65r"
-                    }
-                ],
-                "cse_thumbnail": [
-                    {
-                        "height": "169",
-                        "src": "https://encrypted-tbn2.gstatic.com/images?q=tbn:ANd9GcSFCHEdVQU2VGNggSghIOlh4nal92q7wEqsIkXEQnKddhTrc8id024NvYQ",
-                        "width": "299"
-                    }
-                ],
-                "metatags": [
-                    {
-                        "article:modified_time": "2018-06-08T12:49:07-05:00",
-                        "article:published_time": "2015-08-03T14:14:51-05:00",
-                        "og:description": "Goodwill supports greener transportation by adding electric vehicle charging stations at some of their stores.",
-                        "og:image": "https://www.pca.state.mn.us/sites/default/files/styles/open_graph_image/public/310867105bd77816115eb8beca878465_XL.jpg?itok=Kz-1k65r",
-                        "og:site_name": "Minnesota Pollution Control Agency",
-                        "og:title": "Electric vehicles charge at Goodwill stores",
-                        "og:type": "article",
-                        "og:updated_time": "2018-06-08T12:49:07-05:00",
-                        "og:url": "https://www.pca.state.mn.us/featured/electric-vehicles-charge-goodwill-stores",
-                        "twitter:card": "summary",
-                        "twitter:creator": "@MnPCA",
-                        "twitter:description": "Goodwill supports greener transportation by adding electric vehicle charging stations at some of their stores.",
-                        "twitter:image": "https://www.pca.state.mn.us/sites/default/files/styles/medium/public/310867105bd77816115eb8beca878465_XL.jpg?itok=XJyxkw0I",
-                        "twitter:title": "Electric vehicles charge at Goodwill stores",
-                        "twitter:url": "https://www.pca.state.mn.us/featured/electric-vehicles-charge-goodwill-stores",
-                        "viewport": "width=device-width, initial-scale=1.0"
-                    }
-                ]
-            },
-            "snippet": "Aug 3, 2015 ... Goodwill supports greener transportation by adding electric vehicle charging \nstations at some of their stores.",
-            "title": "Electric vehicles charge at Goodwill stores | Minnesota Pollution ..."
-        },
-    """
+    #traitSearch(['withstands', 'strain'], ['material','property'], 'rubber cutting')
+    #traitSearch(['emit', 'visible light'], ['wavelength'])
+    traitSearch(['convert', 'binary to image'], ['memory cells','circuit','data', 'store'])
 
+    # sample word inflection
+    """
+    nlp = spacy.load('en_core_web_sm')
+    word = 'emits'
+    tokens = nlp(word)
+    tokenised_word = tokens[0]
+
+    inflection_pos_tags = ['VB', 'VBD', 'VBG', 'VBN','VBP','VBZ']
+
+    for pos_tag in inflection_pos_tags:
+        inflection = tokenised_word._.inflect(pos_tag)
+        print(f"inflection of {word} in form {pos_tag} is {inflection}")
+    """
 
 def usage():
     query_list = ['stores', 'electric', 'charge']
