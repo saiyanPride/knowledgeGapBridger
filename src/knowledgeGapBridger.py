@@ -32,7 +32,7 @@ def queryGoogle(query, exact_terms, or_terms, exclude_terms):
         for result_item in query_response['items']:
             result_urls.append(result_item['link'])
             result_snippets.append(result_item['snippet'])
-    except: #TODO: improve this error handle, not down the issue
+    except: #TODO: improve this error handle, note down the issue
         pass
 
     return (result_snippets, result_urls)
@@ -56,7 +56,7 @@ def getVerbInflections(verb):
     return inflections if len(inflections) > 0 else [verb]
 
 def get_enriched_context_string(context_list):
-    #TODO: use NLP to enrich `context_list`, this helps automating the crafting of queries to fit context
+    #TODO: use NLP to enrich `context_list`, this helps with automating the crafting of queries to fit context
     # ['electric','electricity'] should be enriched to give the final result 'electric electricity electronic current'
     return ' '.join(context_list)
 
@@ -66,7 +66,7 @@ def traitSearch(trait, context_list, excludeTerms = None):
     `context_list`: describes the context for this search to avoid ambiguity e.g. ['electric','electricity'], since electric could be taken to mean thrilling excitement
     `excludeTerms`: space separated terms to exlude e.g. ['laser', 'theatre', 'festival']
     """
-
+    info(f"searching for objects with the trait: {trait[0]} {trait[1]}")
     #TODO: validate `trait` assert( len(trait) == 2) & that first term is verb and second term is noun
     verb = trait[0]
     noun = trait[1]
@@ -77,7 +77,7 @@ def traitSearch(trait, context_list, excludeTerms = None):
     for verb_inflection in verb_inflections:
         exact_query_terms.append(verb_inflection + " " + noun)
     
-    #TODO: include synonyms in the `exact_query_terms`, but only those correlated with the context, in the UI give the user the freedom to reject some terms e.g. synonyms of emit include [produce, give off, secret] in the context of visible light, user may to reject secret
+    #TODO: include synonyms in the `exact_query_terms`, but only those correlated with the context, in the UI give the user the freedom to reject some terms e.g. synonyms of emit include [produce, give off, secrete] in the context of visible light
 
     # enrich context of the search with other strongly correlated & relevant terms
     context_string = get_enriched_context_string(context_list) 
@@ -104,9 +104,11 @@ def traitSearch(trait, context_list, excludeTerms = None):
 def test():
 
     # sample trait search
+    #traitSearch(['absorb', 'shock'], ['material', 'compressible'])
     #traitSearch(['withstands', 'strain'], ['material','property'], 'rubber cutting')
     #traitSearch(['emit', 'visible light'], ['wavelength'])
-    traitSearch(['convert', 'binary to image'], ['memory cells','circuit','data', 'store'])
+    #traitSearch(['convert', 'binary to image'], ['memory cells','circuit','data', 'store'])
+    #traitSearch(['price', 'poison pill'], ['model', 'technique'], ['drug','drugs'])
 
     # sample word inflection
     """
