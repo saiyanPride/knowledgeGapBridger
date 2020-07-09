@@ -21,7 +21,7 @@ class ResultCandidates{
     public:
     
     ResultCandidates(string name_): name(name_){
-        noRelatedKeywords = minAverageDistanceToKeyword = maxAverageDistanceToKeyword = associationFrequencyToKeywordsSum = 0;
+        noRelatedKeywords = minAverageDistanceToKeyword = maxAverageDistanceToKeyword = totalAssociationFrequency = 0;
     }
 
     uint64_t noRelatedKeywords();

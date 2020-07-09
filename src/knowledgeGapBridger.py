@@ -60,6 +60,11 @@ def get_enriched_context_string(context_list):
     # ['electric','electricity'] should be enriched to give the final result 'electric electricity electronic current'
     return ' '.join(context_list)
 
+def logTempResults(snippets, links):
+    with open('logs/tempResults.txt','w') as tempLogFile:
+        for snippet, link in zip(snippets, links):
+            tempLogFile.write(snippet + " -> " + link + "\n\n")
+
 def traitSearch(trait, context_list, excludeTerms = None):
     """
     `trait`: describes a property of the sought object using verb (lemmatised ideally) & noun e.g. ["emit, light"] or ['store','charge']
@@ -90,8 +95,7 @@ def traitSearch(trait, context_list, excludeTerms = None):
         snippets += snippets_
         links += links_
     
-    for snippet, link in zip(snippets, links):
-        print(snippet + " -> " + link + "\n")
+    logTempResults(snippets, links)
 
     #TODO: use NLP to filter the results by relevance? doesn't search engine already handle relevance for you
 
@@ -104,6 +108,7 @@ def traitSearch(trait, context_list, excludeTerms = None):
 def test():
 
     # sample trait search
+    traitSearch(['stop', 'dog barking'], ['noise', 'neighbour'])
     #traitSearch(['absorb', 'shock'], ['material', 'compressible'])
     #traitSearch(['withstands', 'strain'], ['material','property'], 'rubber cutting')
     #traitSearch(['emit', 'visible light'], ['wavelength'])
