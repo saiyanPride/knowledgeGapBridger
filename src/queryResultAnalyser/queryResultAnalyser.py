@@ -54,7 +54,7 @@ def get_nearest_keyword_distance(cnk_start, cnk_end, keyword_ranks):
         elif cnk_start > keyword_ranks[keyword_size-1]:
             result = cnk_start - keyword_ranks[keyword_size-1] # since cnk is in region after last keyword
         else:   # cnk is located between the first & last keywords i.e. ...firstKeyword...cnk...lastKeyWord...
-            # format of region near cnk will look like: nearestLeftKeyWord...cnkStart->cnkEnd...nearestRightKeyword
+            # format of region near cnk will look like: nearestLeftKeyWord...cnkStart
             # find index of nearestRightKeyword, then deduce index of nearestLeftKeyWord within keyword_ranks, determine their respective ranks and minimum distance of cnk to its nearest keyword
             nearest_right_keyword_index = get_nearest_right_keyword_for_enclosed_cnk(cnk_end)
             nearest_left_keyword_index = nearest_right_keyword_index - 1
@@ -68,6 +68,23 @@ def is_noun_or_noun_phrase(word):
     result = True if token.tag_ in PENN_TREEBANK_POS_TAGS_NOUNS else False
     return result
 
+def lemmatise_keyword_set(keywords_set):
+    return {nlp(word)[0].lemma_ for word in keywords_set} # lemmatised the keywords i.e. the root of the tree of each keyword
+
+def get_noun_chunks(snippet, keywords_set):
+    """
+    think of chunks as nouns or noun phrases
+    """
+    keywords_set = lemmatise_keyword_set(keywords_set)
+    result = []
+    doc = nlp(snippet)
+    for chunk in doc.noun_chunks:
+        if chunk.root.lemma_ not in keywords_set:
+            result.append(chunk.text) # the core noun in the noun chunk belongs to a non-keyword tree i.e. it is not a keyword, lemma of a keyword or inflection of a keyword
+    return result
+
+def get_lemma(word):
+    return nlp(word)[0].lemma_
 def summarise_snippet(snippet, keywords_set, is_noteworthy_word = is_noun_or_noun_phrase):
     """
     is_noteworthy_word is a caller provided function which examines a word and determines whether it is noteworthy or not, noteworthy words will be present in the summary that will be returned
@@ -76,13 +93,19 @@ def summarise_snippet(snippet, keywords_set, is_noteworthy_word = is_noun_or_nou
     assert( isinstance(keywords_set,set))
     assert(len(snippet)>=1)
     snippet = snippet.split()
-    # store the index of all keywords in an array
-    
+
+    # identify all keywords & store their indexes an array
+
     snippet_size = len(snippet)
     keyword_rank_list = [] # keyword_rank_list[i] rank of the ith keyword encountered
+    keywords_set = lemmatise_keyword_set(keywords_set)
+    
+    def is_keyword(word): return get_lemma(word) in keywords_set
+
     for i, word in enumerate(snippet):
-        if word in keywords_set:
+        if is_keyword(word): # if lemma of word is in `keywords_set`, it means the word belongs to a keyword tree i.e. this word is part of a keyword tree, and is thus a keyword
             keyword_rank_list.append(i)
+
 
     result_dict = dict() # stores key-value pairs, each noteworthy word/phrase mapped to its distance to its nearest keyword
     if snippet_size == 0: return "" # no keyword in snippet so do nothing
@@ -91,13 +114,13 @@ def summarise_snippet(snippet, keywords_set, is_noteworthy_word = is_noun_or_nou
         # below algo plucks out all filtrate words, but if filtrate words are consecutive, pluck them all out
         current = 0; # start from first word
         while current < snippet_size: # not out of bounds (OOB)
-            if snippet[current] in keywords_set or is_noteworthy_word(snippet[current]) == False:
+            if is_keyword(snippet[current]) or is_noteworthy_word(snippet[current]) == False:
                 current += 1
             else: # current value is nonKeyWord filtrate word, so find longest sequence of filtrates that starts with current word, to form cnk
                 # determine end of longest sequence of filtrate words i.e. find the next nonKeyWord filtrate word
                 cnk_start = current
 
-                while (current < snippet_size) and ((not snippet[current] in keywords_set) and is_noteworthy_word(snippet[current]) == True):
+                while (current < snippet_size) and ((not is_keyword(snippet[current])) and is_noteworthy_word(snippet[current]) == True):
                     current += 1
                 
                 # regardless of the condition that caused termination, `current`-1 is the end of the cnk, so next iteration will start processing from `current`
@@ -112,14 +135,49 @@ def summarise_snippet(snippet, keywords_set, is_noteworthy_word = is_noun_or_nou
                     result_dict[cnk] = min_distance_to_keyword
                 # next iteration will start processing from `current`, which currently holds the index of the word after cnk
     
-    result_list = [k for k,v in sorted(result_dict.items(), key=lambda item: item[1])] # sort result dictionary by value i.e. by item[1] then returns keys ordered by their value
-    return ';'.join(result_list)
+    return [k for k,v in sorted(result_dict.items(), key=lambda item: item[1])] # sort result dictionary by value i.e. by item[1] then returns keys ordered by their value
 
 if __name__ == '__main__':
-    snippet = """
-Nov 28, 2019 ... Stop dog barking noise is the best ultrasonic dog whistle sound app which will 
-produce anti dog bark sounds to stop barking dog sound
+    snippet1 = """
+    Nov 28, 2019 ... Stop dog barking noise is the best ultrasonic dog whistle sound app which will 
+    produce anti dog bark sounds to stop barking dog sound
     """
-    keywords_set = {"Stop","dog","barking"}
-    result = summarise_snippet(snippet, keywords_set)
-    print(result)
+
+    snippet2 = """
+    Collarless bark control solution humanely stops dog barking up to 200′ (60.1 m) 
+    away – up to 4× farther than the competition. Powerful, humane, and ...
+    """
+    snippet3 = """
+    Stops dog barking up to 300′ away – up to 6× farther than the competition while 
+    still humane and shock-free. Worried about your dog this 4th of July? Check out ... 
+    """
+
+    snippet4 = """
+    Collarless bark control solution humanely stops dog barking up to 60 m away – 
+    up ... Perfect for when you want to keep the peace with both your neighbour and ... 
+    """
+
+    snippet5 = """
+    Customers feel so relieved after purchasing as it stops dog barking effectively. ... 
+    Obviously he has tried it on....but as soon as the noise kicks in(which is after the ... 
+    """
+
+    snippet6 = """
+    Stops Dog Barking with Humane, Painless Sound - Not Shock. (6 reviews). See 
+    Reviews | Write a Review 4.56. HP-2 SUPER HUSH PUPPY: PROGRESSIVE ... 
+    """
+
+    snippet7 = """
+    All listings for this product. Buy It Now. Buy It Now. New. New. Dog Silencer® - 
+    Ultrasonic Bark Control Device Stops Dog Barking Humanely. SPONSORED ... 
+    """
+
+    keywords_set = {"stop","dog","barking"}
+
+    snippets = [snippet1, snippet2, snippet3, snippet4, snippet5, snippet6, snippet7]
+    
+    print("--RESULTS---")
+    for snippet in snippets:
+        print("nuggets ordered by minDist ->", summarise_snippet(snippet, keywords_set))
+        print("noun chunks ->", get_noun_chunks(snippet, keywords_set))
+        print("\n")
