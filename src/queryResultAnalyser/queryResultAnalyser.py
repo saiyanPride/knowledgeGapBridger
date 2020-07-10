@@ -1,3 +1,8 @@
+import spacy
+nlp = spacy.load('en_core_web_sm')
+
+PENN_TREEBANK_POS_TAGS_NOUNS = ["NN","NNP","NNS","NNPS"]
+
 def get_nearest_keyword_distance(cnk_start, cnk_end, keyword_ranks):
     """
     keyword_ranks has to be non-empty list!
@@ -10,7 +15,7 @@ def get_nearest_keyword_distance(cnk_start, cnk_end, keyword_ranks):
     There is an implicit assumption, that the snippet will only be a few words i.e. not billions of words, otherwise integer overflows may occur when dealing with ranks e.g. the 5 billionth word's rank can't be stored in a 32 bit int
     """
     keyword_size = len(keyword_ranks)
-    assert(keyword_size) >= 1)
+    assert(keyword_size >= 1)
     assert(cnk_start <= cnk_end)
     result = 0
 
@@ -19,9 +24,9 @@ def get_nearest_keyword_distance(cnk_start, cnk_end, keyword_ranks):
         cnk is guaranteed to be surrounded by keywords i.e. it has a nearest left keyword
         """
         nearest_right_keyword_index = -1
-            for i in range(0,keyword_size): # find index in keyword_ranks corresponding to nearestRightKeyword 
-                if keyword_ranks[i] > cnk_rank: 
-                    nearest_right_keyword_index = i
+        for i in range(0,keyword_size): # find index in keyword_ranks corresponding to nearestRightKeyword 
+            if keyword_ranks[i] > cnk_rank: 
+                nearest_right_keyword_index = i
         assert(nearest_right_keyword_index != -1)# this assertion is redundant, it is guaranteed that the nearest_right_keyword_index was found and set
         return nearest_right_keyword_index
         
@@ -58,15 +63,26 @@ def get_nearest_keyword_distance(cnk_start, cnk_end, keyword_ranks):
             result = min(min_keyword_dist_to_right, min_keyword_dist_to_left)
     return result
 
-def summarise_snippet(snippet, keywords_set, is_noteworthy_word):
+def is_noun_or_noun_phrase(word):
+    token = nlp(word)[0]
+    result = True if token.tag_ in PENN_TREEBANK_POS_TAGS_NOUNS else False
+    return result
+
+def summarise_snippet(snippet, keywords_set, is_noteworthy_word = is_noun_or_noun_phrase):
     """
-    is_noteworthy_word is a function which examines a word and determines whether it is noteworthy or not, noteworthy words will be present in the summary that will be returned
+    is_noteworthy_word is a caller provided function which examines a word and determines whether it is noteworthy or not, noteworthy words will be present in the summary that will be returned
     """
+    # TODO: update keywords_set to contain all  inflections of members of `keywords_set` that are in `snippet` e.g. if stop is in `keyword_set` but it is actually Stops that is in the snippet, then the keyword you check against is "Stops" not "stop"
+    assert( isinstance(keywords_set,set))
     assert(len(snippet)>=1)
+    snippet = snippet.split()
     # store the index of all keywords in an array
     
     snippet_size = len(snippet)
-    keyword_rank_list = [ snippet[i] if snippet[i] in keywords_set for i in range(0,snippet_size)] # keyword_rank_list[i] rank of the ith keyword encountered
+    keyword_rank_list = [] # keyword_rank_list[i] rank of the ith keyword encountered
+    for i, word in enumerate(snippet):
+        if word in keywords_set:
+            keyword_rank_list.append(i)
 
     result_dict = dict() # stores key-value pairs, each noteworthy word/phrase mapped to its distance to its nearest keyword
     if snippet_size == 0: return "" # no keyword in snippet so do nothing
@@ -80,20 +96,30 @@ def summarise_snippet(snippet, keywords_set, is_noteworthy_word):
             else: # current value is nonKeyWord filtrate word, so find longest sequence of filtrates that starts with current word, to form cnk
                 # determine end of longest sequence of filtrate words i.e. find the next nonKeyWord filtrate word
                 cnk_start = current
-                while (current < snippet_size) and (snippet[current] in keywords_set or (is_noteworthy_word(snippet[current]) == False) ):
+
+                while (current < snippet_size) and ((not snippet[current] in keywords_set) and is_noteworthy_word(snippet[current]) == True):
                     current += 1
                 
                 # regardless of the condition that caused termination, `current`-1 is the end of the cnk, so next iteration will start processing from `current`
-                cnk_end = current
+                cnk_end = current-1
                 min_distance_to_keyword = get_nearest_keyword_distance(cnk_start, cnk_end, keyword_rank_list)
-                cnk = snippet[cnk_start:cnk_end+1]
+                cnk = ' '.join(snippet[cnk_start:cnk_end+1])
 
                 # store cnk in result_dict
-                if result_dict.has_key(cnk):
+                if cnk in result_dict:
                     result_dict[cnk] = min(result_dict[cnk], min_distance_to_keyword) # if cnk has been extracted before, update distance to keyword with smallest 
                 else:
                     result_dict[cnk] = min_distance_to_keyword
                 # next iteration will start processing from `current`, which currently holds the index of the word after cnk
     
     result_list = [k for k,v in sorted(result_dict.items(), key=lambda item: item[1])] # sort result dictionary by value i.e. by item[1] then returns keys ordered by their value
-    return '\t;\t'.join(result_list)
+    return ';'.join(result_list)
+
+if __name__ == '__main__':
+    snippet = """
+Nov 28, 2019 ... Stop dog barking noise is the best ultrasonic dog whistle sound app which will 
+produce anti dog bark sounds to stop barking dog sound
+    """
+    keywords_set = {"Stop","dog","barking"}
+    result = summarise_snippet(snippet, keywords_set)
+    print(result)
