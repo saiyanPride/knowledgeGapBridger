@@ -1,5 +1,6 @@
 from privateEnvVariables import API_KEY, CUSTOM_SEARCH_ENGINE_ID
 from googleapiclient.discovery import build
+from queryResults.queryResultAnalyser import summarise_snippet, summarise_snippet_get_noun_chunks
 import json
 import spacy
 import pyinflect
@@ -15,7 +16,12 @@ GOOGLE = "GOOGLE"
 nlp = spacy.load('en_core_web_sm')
 PENN_TREEBANK_POS_TAGS_VERBS = ('VB', 'VBD', 'VBG', 'VBN','VBP','VBZ')
 
+# FILE PATHS
+QUERY_RESULT_LOG_FILE_PATH = 'logs/queryResults.txt'
+SNIPPET_SUMMARY_LOG_FILE_PATH = 'logs/snippetSummaries.txt'
+
 def info(msg): print("[INFO] " + msg)
+def warn(msg): print("[WARN] " + msg)
 
 def queryGoogle(query, exact_terms, or_terms, exclude_terms):
     info("running a google query")
@@ -46,7 +52,7 @@ def querySearchEngine(search_engine, exact_query_term, context_string, excludeTe
         return queryGoogle("", exact_query_term, context_string, excludeTerms)
 
 def getVerbInflections(verb):
-    #TODO: lemmatise `verb` if not lemmatised by the user, if user provides lemma, then less likely to run into incorrect lemmatistion issues e.g. 'hating' -> 'hat', instead of hate
+    #TODO: lemmatise `verb` if not lemmatised by the user, if user provides lemma, then less likely to run into incorrect lemmatisation issues e.g. 'hating' -> 'hat', instead of hate
     inflections = []
     tokenised_word = nlp(verb)[0]
 
@@ -61,9 +67,32 @@ def get_enriched_context_string(context_list):
     return ' '.join(context_list)
 
 def logTempResults(snippets, links):
-    with open('logs/tempResults.txt','w') as tempLogFile:
+    with open(QUERY_RESULT_LOG_FILE_PATH,'w') as tempLogFile:
         for snippet, link in zip(snippets, links):
             tempLogFile.write(snippet + " -> " + link + "\n\n")
+
+def generate_snippet_summaries(snippets, urls, exact_query_terms):
+    keywords = []
+    for term in exact_query_terms:
+        keywords += term.split() # some terms in the query consist of multiple words, the indivdual words are desired
+    
+    keywords_set = set(keywords)
+    
+    # merge snippet summaries into single list
+    nuggets = [] 
+    for snippet, url in zip(snippets, urls):
+        nuggets += summarise_snippet_get_noun_chunks(snippet, keywords_set)
+        nuggets += summarise_snippet(snippet, keywords_set)
+        #nuggets.append(f"url->{url}]") # if you want url info, see the queryResults
+    
+    #TODO: filter the results by relevance? doesn't search engine already handle relevance for you
+
+    #TODO: remove duplicates, not just verbatim duplicates
+    nuggets = set(nuggets)
+    # write snippet summaries to file
+    with open(SNIPPET_SUMMARY_LOG_FILE_PATH,'w') as summaryFile:
+        for nugget in nuggets:
+            summaryFile.write(nugget+"\n")
 
 def traitSearch(trait, context_list, excludeTerms = None):
     """
@@ -88,22 +117,16 @@ def traitSearch(trait, context_list, excludeTerms = None):
     context_string = get_enriched_context_string(context_list) 
     
     snippets = []
-    links = []
+    urls = []
     #TODO: cap the number of searches, to avoid the possibility of an infinite search
     for exact_query_term in exact_query_terms:
-        snippets_, links_ = querySearchEngine(GOOGLE, exact_query_term, context_string, excludeTerms)
+        snippets_, urls_ = querySearchEngine(GOOGLE, exact_query_term, context_string, excludeTerms)
         snippets += snippets_
-        links += links_
+        urls += urls_
     
-    logTempResults(snippets, links)
-
-    #TODO: use NLP to filter the results by relevance? doesn't search engine already handle relevance for you
-
-    #TODO: if possible use NLP to determine the object (noun or phrasal noun) or worst case the sentence which has the sought trait
-    
-    #TODO: use NLP to remove duplicates
-    
-    # return the relevant search_results after post-processing
+    logTempResults(snippets, urls)
+    generate_snippet_summaries(snippets, urls, exact_query_terms)    
+    info(" trait search complete")
 
 def test():
 

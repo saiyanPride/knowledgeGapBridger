@@ -1,8 +1,4 @@
-import spacy
-nlp = spacy.load('en_core_web_sm')
-
-PENN_TREEBANK_POS_TAGS_NOUNS = ["NN","NNP","NNS","NNPS"]
-
+from queryResults import nlp, PENN_TREEBANK_POS_TAGS_NOUNS
 def get_nearest_keyword_distance(cnk_start, cnk_end, keyword_ranks):
     """
     keyword_ranks has to be non-empty list!
@@ -71,7 +67,7 @@ def is_noun_or_noun_phrase(word):
 def lemmatise_keyword_set(keywords_set):
     return {nlp(word)[0].lemma_ for word in keywords_set} # lemmatised the keywords i.e. the root of the tree of each keyword
 
-def get_noun_chunks(snippet, keywords_set):
+def summarise_snippet_get_noun_chunks(snippet, keywords_set):
     """
     think of chunks as nouns or noun phrases
     """
@@ -89,7 +85,6 @@ def summarise_snippet(snippet, keywords_set, is_noteworthy_word = is_noun_or_nou
     """
     is_noteworthy_word is a caller provided function which examines a word and determines whether it is noteworthy or not, noteworthy words will be present in the summary that will be returned
     """
-    # TODO: update keywords_set to contain all  inflections of members of `keywords_set` that are in `snippet` e.g. if stop is in `keyword_set` but it is actually Stops that is in the snippet, then the keyword you check against is "Stops" not "stop"
     assert( isinstance(keywords_set,set))
     assert(len(snippet)>=1)
     snippet = snippet.split()
@@ -106,7 +101,14 @@ def summarise_snippet(snippet, keywords_set, is_noteworthy_word = is_noun_or_nou
         if is_keyword(word): # if lemma of word is in `keywords_set`, it means the word belongs to a keyword tree i.e. this word is part of a keyword tree, and is thus a keyword
             keyword_rank_list.append(i)
 
-
+    
+    if len(keyword_rank_list) < 1:
+        print("this snippet has no inflection of any of the keywords")
+        print("keywords are: ", keywords_set)
+        print("snippet is: ", snippet)
+        print("keyword rank list: ", keyword_rank_list)
+        return []
+    
     result_dict = dict() # stores key-value pairs, each noteworthy word/phrase mapped to its distance to its nearest keyword
     if snippet_size == 0: return "" # no keyword in snippet so do nothing
     else: # at least 1 keyword exists so extract all noteworthy consecutive non-keywords (cnk), noteworthy cnks are non-keywords that pass the filter a.k.a filtrates
@@ -135,8 +137,8 @@ def summarise_snippet(snippet, keywords_set, is_noteworthy_word = is_noun_or_nou
                     result_dict[cnk] = min_distance_to_keyword
                 # next iteration will start processing from `current`, which currently holds the index of the word after cnk
     
-    return [k for k,v in sorted(result_dict.items(), key=lambda item: item[1])] # sort result dictionary by value i.e. by item[1] then returns keys ordered by their value
-
+    result_list = [k for k,v in sorted(result_dict.items(), key=lambda item: item[1])] # sort result dictionary by value i.e. by item[1] then returns keys ordered by their value
+    return result_list
 if __name__ == '__main__':
     snippet1 = """
     Nov 28, 2019 ... Stop dog barking noise is the best ultrasonic dog whistle sound app which will 
@@ -179,5 +181,5 @@ if __name__ == '__main__':
     print("--RESULTS---")
     for snippet in snippets:
         print("nuggets ordered by minDist ->", summarise_snippet(snippet, keywords_set))
-        print("noun chunks ->", get_noun_chunks(snippet, keywords_set))
+        print("noun chunks ->", summarise_snippet_get_noun_chunks(snippet, keywords_set))
         print("\n")
