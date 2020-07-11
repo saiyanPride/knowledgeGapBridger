@@ -88,7 +88,7 @@ def generate_snippet_summaries(snippets, urls, exact_query_terms):
     #TODO: filter the results by relevance? doesn't search engine already handle relevance for you
 
     #TODO: remove duplicates, not just verbatim duplicates
-    nuggets = set(nuggets)
+    nuggets = set(nuggets) # this just removes verbatim duplicates
     # write snippet summaries to file
     with open(SNIPPET_SUMMARY_LOG_FILE_PATH,'w') as summaryFile:
         for nugget in nuggets:
