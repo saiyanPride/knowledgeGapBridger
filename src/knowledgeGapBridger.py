@@ -85,10 +85,16 @@ def generate_snippet_summaries(snippets, urls, exact_query_terms):
         nuggets += summarise_snippet(snippet, keywords_set)
         #nuggets.append(f"url->{url}]") # if you want url info, see the queryResults
     
-    #TODO: filter the results by relevance? doesn't search engine already handle relevance for you
+    nuggets = set(nuggets) # this just removes verbatim duplicates
+
+    #TODO: order the results by relevance
+        #nuggets like "I, "you" can be considered irrelevant, whilst for other terms, you need a technique to find their degree of association
+        # to the query terms e.g. ultrasonic is more closely related to {dog,barking,stop}, than solar panel is.
+        # as a human, I know this intuitively, the challenge is now to get a computer to deduce in a computationally efficient way
+        # my idea is to give each term a relevance score, and if score is too low, drop it, otherwise retain
 
     #TODO: remove duplicates, not just verbatim duplicates
-    nuggets = set(nuggets) # this just removes verbatim duplicates
+
     # write snippet summaries to file
     with open(SNIPPET_SUMMARY_LOG_FILE_PATH,'w') as summaryFile:
         for nugget in nuggets:
