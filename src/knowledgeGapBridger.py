@@ -73,6 +73,9 @@ def logTempResults(snippets, links):
 
 def generate_snippet_summaries(snippets, urls, exact_query_terms):
     keywords = []
+    
+    exact_query_terms = [term.lower() for term in exact_query_terms] # query terms are typically not longer than a sentence, so performance hit not too bad
+
     for term in exact_query_terms:
         keywords += term.split() # some terms in the query consist of multiple words, the indivdual words are desired
     

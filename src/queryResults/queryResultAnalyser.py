@@ -1,4 +1,11 @@
-from queryResults import nlp, PENN_TREEBANK_POS_TAGS_NOUNS
+import functools
+import spacy
+nlp = spacy.load('en_core_web_sm')
+PENN_TREEBANK_POS_TAGS_NOUNS = ["NN","NNP","NNS","NNPS"]
+END_OF_SUMMARY_DELIMETER = ";"
+
+def info(msg): print("[INFO] " + msg)
+
 def get_nearest_keyword_distance(cnk_start, cnk_end, keyword_ranks):
     """
     keyword_ranks has to be non-empty list!
@@ -83,11 +90,12 @@ def get_lemma(word):
     return nlp(word)[0].lemma_
 def summarise_snippet(snippet, keywords_set, is_noteworthy_word = is_noun_or_noun_phrase):
     """
-    is_noteworthy_word is a caller provided function which examines a word and determines whether it is noteworthy or not, noteworthy words will be present in the summary that will be returned
+    is_noteworthy_word is a function which examines a word and determines whether it is noteworthy or not, noteworthy words will be present in the summary that will be returned
+    Think of it as a filtering tool
     """
     assert( isinstance(keywords_set,set))
     assert(len(snippet)>=1)
-    snippet = snippet.split()
+    snippet = snippet.split() # covnerts to list to allowing iterating through one word at a time (as opposed to chars)
 
     # identify all keywords & store their indexes an array
 
@@ -95,7 +103,9 @@ def summarise_snippet(snippet, keywords_set, is_noteworthy_word = is_noun_or_nou
     keyword_rank_list = [] # keyword_rank_list[i] rank of the ith keyword encountered
     keywords_set = lemmatise_keyword_set(keywords_set)
     
-    def is_keyword(word): return get_lemma(word) in keywords_set
+    @functools.lru_cache(maxsize=128)
+    def is_keyword(word):
+        return get_lemma(word.lower()) in keywords_set
 
     for i, word in enumerate(snippet):
         if is_keyword(word): # if lemma of word is in `keywords_set`, it means the word belongs to a keyword tree i.e. this word is part of a keyword tree, and is thus a keyword
@@ -103,12 +113,16 @@ def summarise_snippet(snippet, keywords_set, is_noteworthy_word = is_noun_or_nou
 
     
     if len(keyword_rank_list) < 1:
+        return []
+    """
+    #DEBUG start
         print("this snippet has no inflection of any of the keywords")
         print("keywords are: ", keywords_set)
         print("snippet is: ", snippet)
         print("keyword rank list: ", keyword_rank_list)
-        return []
-    
+        assert(len(keyword_rank_list) >= 1)
+    #DEBUG end
+    """
     result_dict = dict() # stores key-value pairs, each noteworthy word/phrase mapped to its distance to its nearest keyword
     if snippet_size == 0: return "" # no keyword in snippet so do nothing
     else: # at least 1 keyword exists so extract all noteworthy consecutive non-keywords (cnk), noteworthy cnks are non-keywords that pass the filter a.k.a filtrates
@@ -179,6 +193,7 @@ if __name__ == '__main__':
     snippets = [snippet1, snippet2, snippet3, snippet4, snippet5, snippet6, snippet7]
     
     print("--RESULTS---")
+
     for snippet in snippets:
         print("nuggets ordered by minDist ->", summarise_snippet(snippet, keywords_set))
         print("noun chunks ->", summarise_snippet_get_noun_chunks(snippet, keywords_set))
