@@ -1,4 +1,4 @@
 # knowledgeGapBridger
 - This is an attempt to utilise Natural Language Processing techniques to decipher search engine results, summarise them and present these summaries to a human user. 
 - The motivation is to enable humans to extract all relevant insights, from search engine queries which have an overwhelmingly large number of results ( think thousands, millions etc) in a short time frame. This is vital for problem-solving, where every relevant piece of information is potentially useful, but the time it'll take a human to digest all search results is beyond his/her lifetime
-- **I will provide usage instructions, once this is ready for sharing, but feel free to browse if I shared this link with you**
+- **I will provide usage instructions once this program is ready for sharing, but feel free to browse if I shared this repo's link with you**
