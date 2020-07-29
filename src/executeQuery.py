@@ -85,6 +85,7 @@ def test():
     #traitSearch(['convert', 'binary to image'], ['memory cells','circuit','data', 'store'])
     #traitSearch(['price', 'poison pill'], ['model', 'technique'], ['drug','drugs'])
 
+"""
 def usage():
     query_list = ['stores', 'electric', 'charge']
     context_string = '' #helps to filter
@@ -101,6 +102,7 @@ def usage():
     or_search_terms = [] # this is used to filter results from other search paramters, at least one of these must be in results
     
     smartQuery(query_list, context_string, query_pos_list)
+"""
 
 if __name__ == '__main__':
     test()
