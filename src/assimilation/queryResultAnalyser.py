@@ -17,6 +17,10 @@ def get_nearest_keyword_distance(cnk_start, cnk_end, keyword_indices):
     assert(cnk_start <= cnk_end)
     result = 0
 
+    # when reading the below, note the distincton between the index of a keyword in the snippet & the index of a keyword in `keyword_indices`. 
+    # the latter can be thought of as the rank of the keyword based on the order in which it appears in the `snipet`, whereas the former is the actual index within
+    # the `snippet` string
+
     def get_nearest_right_keyword_for_enclosed_cnk(cnk_index): #nested
         """
         cnk is guaranteed to be surrounded by keywords i.e. it has a nearest left keyword
@@ -29,7 +33,6 @@ def get_nearest_keyword_distance(cnk_start, cnk_end, keyword_indices):
         assert(nearest_right_keyword_index != -1)# this assertion is redundant, it is guaranteed that the nearest_right_keyword_index was found and set
         return nearest_right_keyword_index
         
-
     if cnk_start == cnk_end: # cnk is a single word
         cnk_index = cnk_start
         
