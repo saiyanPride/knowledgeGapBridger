@@ -11,10 +11,10 @@ def log_query_result_snippets(snippets, links):
         for snippet, link in zip(snippets, links):
             tempLogFile.write(snippet + " -> " + link + "\n\n")
 
-def log_query_result_summaries(nuggets):
+def log_query_result_summaries(nugget_distance_pairs):
     with open(CONSTANTS.SNIPPET_SUMMARY_LOG_FILE_PATH,'w') as summaryFile:
-        for nugget in nuggets:
-            summaryFile.write(nugget+"\n")
+        for nugget_distance_pair in nugget_distance_pairs:
+            summaryFile.write(f"{nugget_distance_pair[0]} -> {nugget_distance_pair[1]}\n")
 
 
 # Natural language processing

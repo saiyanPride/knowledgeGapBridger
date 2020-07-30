@@ -17,18 +17,36 @@ def extract_query_keywords(exact_query_terms):
     
     return set(keywords)
 
+def get_nuggets_ordered_by_proximity_to_keywords(snippets, urls, keywords_set):
+    """
+    returns a list of tuples, where each tuple contains a nugget and its smallest distance to a keyword i.e. (nugget, distance)
+    """
+    nugget_distance_pairs = [] 
+    for snippet, url in zip(snippets, urls):
+        nugget_distance_pairs += summarise_snippet(snippet, keywords_set)
+        # TODO: consider including the url in the result
+    nugget_distance_pairs.sort(key=lambda item: item[1])
+    return nugget_distance_pairs
+
+def deduplicate_nuggets_stable(nugget_distance_pairs):
+    """
+    remove nuggets that are the same and maintain order of occurence in `nugget_distance_pairs`
+    """
+    seen_nuggets = set()
+    deduplicated_nuggets =[]
+    for nugget_distance_pair in nugget_distance_pairs:
+        if nugget_distance_pair[0] not in seen_nuggets:
+            seen_nuggets.add(nugget_distance_pair[0])
+            deduplicated_nuggets.append(nugget_distance_pair)
+    
+    return deduplicated_nuggets
+
 def generate_snippet_summaries(snippets, urls, exact_query_terms):
     keywords_set = extract_query_keywords(exact_query_terms)
     
     # merge snippet summaries into single list
-    nuggets = [] 
-    for snippet, url in zip(snippets, urls):
-        nuggets += summarise_snippet_by_getting_noun_chunks(snippet, keywords_set)
-        nuggets += summarise_snippet(snippet, keywords_set)
-        # nuggets.append(f"url->{url}]") # if you want url info, see the queryResults
-    
-    nuggets = set(nuggets) # remove verbatim duplicates
-
+    nugget_distance_pairs = get_nuggets_ordered_by_proximity_to_keywords(snippets, urls, keywords_set)
+    nugget_distance_pairs = deduplicate_nuggets_stable(nugget_distance_pairs)
     #TODO: order the results by relevance
         #nuggets like "I, "you" can be considered irrelevant, whilst for other terms, you need a technique to find their degree of association
         # to the query terms e.g. ultrasonic is more closely related to {dog,barking,stop}, than solar panel is.
@@ -37,7 +55,7 @@ def generate_snippet_summaries(snippets, urls, exact_query_terms):
 
     #TODO: remove duplicates, not just verbatim duplicates
 
-    log_query_result_summaries(nuggets)
+    log_query_result_summaries(nugget_distance_pairs)
 
 def craft_queries(verb, noun):
     verb_inflections = get_verb_Inflections(verb)

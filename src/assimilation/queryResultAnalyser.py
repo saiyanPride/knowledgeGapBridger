@@ -25,6 +25,7 @@ def get_nearest_keyword_distance(cnk_start, cnk_end, keyword_indices):
         for i in range(0,keyword_size): # find index in keyword_indices corresponding to nearestRightKeyword 
             if keyword_indices[i] > cnk_index: 
                 nearest_right_keyword_index = i
+                break
         assert(nearest_right_keyword_index != -1)# this assertion is redundant, it is guaranteed that the nearest_right_keyword_index was found and set
         return nearest_right_keyword_index
         
@@ -134,6 +135,4 @@ def summarise_snippet(snippet, keywords_set, is_noteworthy_word = is_noun_or_nou
             else:
                 result_dict[cnk] = distance_to_nearest_keyword
             # next iteration will start processing from `current`, which currently holds the index of the word after the cnk
-    
-    result_list = [k for k,v in sorted(result_dict.items(), key=lambda item: item[1])] # sort result dictionary by value i.e. by item[1] then return keys ordered by their value
-    return result_list
+    return list(result_dict.items())
